@@ -191,7 +191,7 @@
   html, body { height: 100%; margin: 0; }
 
   body {
-    font: 13px/1.45 -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+    font-family: Arial, -apple-system, system-ui, sans-serif;
     background: var(--bg-app);
     color: var(--text);
     display: flex;
@@ -323,18 +323,93 @@
     padding: 26px;
     box-shadow: var(--shadow-lg);
     transform-origin: top left;
+    /* Anki Centering Rules */
+    text-align: center;
   }
 
-  .canvas svg {
+  /* Exception: lists aligned to the left */
+  .canvas ul,
+  .canvas ol {
+    text-align: left;
+    align-self: flex-start;
+    margin-left: 1.5rem;
+    padding-left: 1rem;
+    width: auto;
+    display: inline-block;
+  }
+  .canvas li {
+    text-align: left;
+  }
+  .canvas b,
+  .canvas strong,
+  .canvas i,
+  .canvas em,
+  .canvas code,
+  .canvas span,
+  .canvas a {
+    display: inline;
+  }
+
+  .canvas svg:not(.icon) {
+    display: block;
     max-width: 100%;
     height: auto;
+    margin: 10px auto;
     overflow: visible;
-    display: block;
     transition: outline .15s ease;
   }
-  .canvas svg:not(.icon):hover {
-    outline: 1.5px dashed var(--accent);
-    outline-offset: 2px;
+  /* So that canvas SVG rule doesn't affect MathJax inline SVGs */
+  .canvas > svg,
+  .canvas .svg-wrapper > svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 10px auto;
+    overflow: visible;
+    transition: outline .15s ease;
+  }
+
+  /* MathJax Inline & Display Layout Rules */
+  mjx-container[jax="SVG"] {
+    display: inline-block !important;
+    margin: 0 2px !important;
+    vertical-align: middle;
+  }
+
+  mjx-container[jax="SVG"][display="true"] {
+    display: block !important;
+    margin: 1em auto !important;
+    text-align: center;
+  }
+
+  mjx-container[jax="SVG"] > svg {
+    display: inline !important;
+    margin: 0 !important;
+  }
+
+  /* Toggle Button Custom Styling */
+  #btn-toggle-mathjax {
+    transition: background .12s ease, border-color .12s ease, color .12s ease;
+  }
+
+  #btn-toggle-mathjax.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  #btn-toggle-mathjax .math-symbol {
+    font-family: serif;
+    font-weight: bold;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .svg-wrapper {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    margin: 0 auto;
   }
 
   /* Hover Copy Button for SVGs */
@@ -342,6 +417,7 @@
     position: relative;
     display: inline-block;
     max-width: 100%;
+    margin: 0 auto;
   }
   .svg-copy-btn {
     position: absolute;
@@ -520,6 +596,35 @@
     .shortcut { display: none; }
   }
 </style>
+<!-- MathJax Configuration -->
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']],
+      processEscapes: true
+    },
+    svg: {
+      fontCache: 'global' // Reuses SVG glyph definitions across multiple equations for maximum efficiency
+    },
+    options: {
+      skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    startup: {
+      typeset: false // Prevents automatic initial scan; render on demand instead
+    }
+  };
+
+  (function loadMathJaxScript() {
+    if (!document.getElementById('MathJax-script')) {
+      const script = document.createElement('script');
+      script.id = 'MathJax-script';
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  })();
+</script>
 </head>
 
 <body>
@@ -544,6 +649,9 @@
       <button id="btnCopy" class="subtle" title="Copy the current code">
         <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
         Copy all
+      </button>
+      <button id="btn-toggle-mathjax" class="subtle" title="Toggle MathJax rendering">
+        MathJax: <strong id="mathjax-status">OFF</strong>
       </button>
     </div>
     <div class="toolbar-divider"></div>
@@ -828,11 +936,62 @@
       // ============================================================
       // Rendering / element wiring
       // ============================================================
+      let isMathJaxEnabled = false;
+      let rawCanvasHtml = '';
+
+      const toggleBtn = document.getElementById('btn-toggle-mathjax');
+      const statusLabel = document.getElementById('mathjax-status');
+
+      function renderMathJax() {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          window.MathJax.typesetPromise([canvas]).catch((err) => {
+            console.error('MathJax rendering error:', err);
+          });
+        }
+      }
+
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+          isMathJaxEnabled = !isMathJaxEnabled;
+          if (statusLabel) {
+            statusLabel.textContent = isMathJaxEnabled ? 'ON' : 'OFF';
+          }
+
+          if (isMathJaxEnabled) {
+            rawCanvasHtml = canvas.innerHTML;
+            renderMathJax();
+          } else {
+            if (rawCanvasHtml) {
+              canvas.innerHTML = rawCanvasHtml;
+              if (typeof prepareSvg === 'function') {
+                canvas.querySelectorAll('svg').forEach(prepareSvg);
+              }
+            }
+          }
+        });
+      }
+
+      // Example integration inside your existing renderHtml function:
       function renderHtml(html, saveHistory) {
         canvas.innerHTML = html;
-        canvas.querySelectorAll('svg').forEach(prepareSvg);
-        clearSelection();
-        if (saveHistory !== false) snapshot();
+        
+        if (typeof prepareSvg === 'function') {
+          canvas.querySelectorAll('svg').forEach(prepareSvg);
+        }
+        
+        if (typeof clearSelection === 'function') {
+          clearSelection();
+        }
+
+        rawCanvasHtml = html;
+
+        if (isMathJaxEnabled) {
+          renderMathJax();
+        }
+
+        if (saveHistory !== false && typeof snapshot === 'function') {
+          snapshot();
+        }
       }
 
       function ensureMarkerDefs(svg) {
