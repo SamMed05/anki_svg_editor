@@ -1163,23 +1163,21 @@
         e.preventDefault();
         e.stopPropagation();
         const start = svgPoint(e, svg);
+
         function move(ev) {
-          const pt = activeSvg.createSVGPoint();
-          pt.x = ev.clientX;
-          pt.y = ev.clientY;
-          const ctm = selection.el.parentNode.getScreenCTM();
-          const localP = ctm ? pt.matrixTransform(ctm.inverse()) : pt;
-          const nx = Math.round(localP.x), ny = Math.round(localP.y);
-          c.setAttribute('cx', nx);
-          c.setAttribute('cy', ny);
-          onMove(nx, ny);
+          const current = svgPoint(ev, svg);
+          const dx = current.x - start.x;
+          const dy = current.y - start.y;
+          onMove(dx, dy);
         }
+
         function up() {
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);
           window.removeEventListener('pointercancel', up);
           if (onEnd) onEnd();
         }
+
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
         window.addEventListener('pointercancel', up);
