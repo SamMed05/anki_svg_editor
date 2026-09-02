@@ -292,7 +292,7 @@
   }
   .zoom-pill button { border: 0; background: transparent; border-radius: 999px; padding: 4px 7px; height: auto; }
   .zoom-pill button:hover:not(:disabled) { background: var(--panel); }
-  .zoom-readout { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--text-muted); min-width: 36px; text-align: center; }
+  .zoom-readout { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--text-muted); min-width: 36px; text-align: center; }
 
   /* ---------- Layout ---------- */
   .layout { display: flex; min-height: 0; flex: 1; }
@@ -314,7 +314,8 @@
   .canvas {
     min-width: 420px;
     min-height: 300px;
-    width: max-content;
+    width: 100%;           /* Fills the available window width instead of hugging contents */
+    max-width: 1000px;     /* Prevents the card from growing too wide on large screens */
     max-width: 100%;
     margin: auto;
     background: var(--canvas-surface);
@@ -332,10 +333,12 @@
   .canvas ol {
     text-align: left;
     align-self: flex-start;
-    margin-left: 1.5rem;
-    padding-left: 1rem;
-    width: auto;
-    display: inline-block;
+    margin: 1em 0 1em -1rem;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    word-break: break-word;
+    white-space: normal;
   }
   .canvas li {
     text-align: left;
@@ -350,13 +353,31 @@
     display: inline;
   }
 
-  .canvas svg:not(.icon) {
+  /* Canvas SVG scaling fixes */
+  /* Exclude MathJax SVGs from full-width canvas scaling */
+  .canvas svg:not(.icon):not(mjx-container svg),
+  .canvas > svg,
+  .canvas .svg-wrapper,
+  .canvas .svg-wrapper > svg {
     display: block;
-    max-width: 100%;
-    height: auto;
+    width: 100% !important;
+    height: auto !important;
     margin: 10px auto;
     overflow: visible;
-    transition: outline .15s ease;
+    transition: outline 0.1s ease, filter 0.1s ease;
+  }
+
+  .canvas .svg-wrapper {
+    width: 100%;
+  }
+
+  /* Hover style for individual editable elements */
+  .editable { 
+    cursor: pointer; 
+    transition: filter 0.1s ease, stroke 0.1s ease;
+  }
+  .editable:hover { 
+    filter: drop-shadow(0 0 4px rgba(var(--hover-halo), 0.85)); 
   }
   /* So that canvas SVG rule doesn't affect MathJax inline SVGs */
   .canvas > svg,
@@ -374,17 +395,22 @@
     display: inline-block !important;
     margin: 0 2px !important;
     vertical-align: middle;
+    color: var(--text) !important;
   }
 
+  /* Force block MathJax onto its own line */
   mjx-container[jax="SVG"][display="true"] {
     display: block !important;
     margin: 1em auto !important;
     text-align: center;
   }
 
-  mjx-container[jax="SVG"] > svg {
-    display: inline !important;
-    margin: 0 !important;
+  mjx-container[jax="SVG"] svg {
+    fill: currentColor !important;
+    stroke: currentColor !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
   }
 
   /* Toggle Button Custom Styling */
@@ -435,14 +461,9 @@
     box-shadow: var(--shadow-sm);
     transition: opacity .15s ease, background .12s ease;
   }
-  .svg-wrapper:hover .svg-copy-btn {
-    opacity: 0.65;
-    pointer-events: auto;
-  }
-  .svg-wrapper:hover .svg-copy-btn:hover {
-    opacity: 1;
-    background: var(--panel-alt);
-    border-color: var(--border-strong);
+  .svg-wrapper:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--hover-halo), 0.18);
   }
 
   /* Editable element affordances */
@@ -936,62 +957,68 @@
       // ============================================================
       // Rendering / element wiring
       // ============================================================
-      let isMathJaxEnabled = false;
+      // Persistent MathJax state
+      let isMathJaxEnabled = localStorage.getItem('anki_svg_editor_mathjax') === 'true';
       let rawCanvasHtml = '';
 
-      const toggleBtn = document.getElementById('btn-toggle-mathjax');
-      const statusLabel = document.getElementById('mathjax-status');
+      const toggleBtn = $('btn-toggle-mathjax');
+      const statusLabel = $('mathjax-status');
+
+      function updateMathJaxUI() {
+        if (statusLabel) statusLabel.textContent = isMathJaxEnabled ? 'ON' : 'OFF';
+        toggleBtn?.classList.toggle('active', isMathJaxEnabled);
+      }
 
       function renderMathJax() {
-        if (window.MathJax && window.MathJax.typesetPromise) {
-          window.MathJax.typesetPromise([canvas]).catch((err) => {
-            console.error('MathJax rendering error:', err);
+        const doTypeset = () => {
+          if (window.MathJax?.typesetPromise) {
+            window.MathJax.typesetPromise([canvas]).catch((err) => console.error('MathJax error:', err));
+          }
+        };
+
+        if (window.MathJax?.typesetPromise) {
+          doTypeset();
+        } else if (window.MathJax?.startup?.promise) {
+          window.MathJax.startup.promise.then(doTypeset);
+        } else {
+          document.getElementById('MathJax-script')?.addEventListener('load', () => {
+            window.MathJax?.startup?.promise?.then(doTypeset);
           });
+        }
+      }
+
+      function initMathJaxState() {
+        updateMathJaxUI();
+        if (isMathJaxEnabled) {
+          rawCanvasHtml = canvas.innerHTML;
+          renderMathJax();
         }
       }
 
       if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
           isMathJaxEnabled = !isMathJaxEnabled;
-          if (statusLabel) {
-            statusLabel.textContent = isMathJaxEnabled ? 'ON' : 'OFF';
-          }
+          localStorage.setItem('anki_svg_editor_mathjax', isMathJaxEnabled.toString());
+          updateMathJaxUI();
 
           if (isMathJaxEnabled) {
             rawCanvasHtml = canvas.innerHTML;
             renderMathJax();
-          } else {
-            if (rawCanvasHtml) {
-              canvas.innerHTML = rawCanvasHtml;
-              if (typeof prepareSvg === 'function') {
-                canvas.querySelectorAll('svg').forEach(prepareSvg);
-              }
-            }
+          } else if (rawCanvasHtml) {
+            renderHtml(rawCanvasHtml, false);
           }
         });
       }
 
-      // Example integration inside your existing renderHtml function:
-      function renderHtml(html, saveHistory) {
+      function renderHtml(html, saveHistory = true) {
         canvas.innerHTML = html;
-        
-        if (typeof prepareSvg === 'function') {
-          canvas.querySelectorAll('svg').forEach(prepareSvg);
-        }
-        
-        if (typeof clearSelection === 'function') {
-          clearSelection();
-        }
-
         rawCanvasHtml = html;
 
-        if (isMathJaxEnabled) {
-          renderMathJax();
-        }
+        prepareSvg && canvas.querySelectorAll('svg').forEach(prepareSvg);
+        clearSelection?.();
 
-        if (saveHistory !== false && typeof snapshot === 'function') {
-          snapshot();
-        }
+        if (isMathJaxEnabled) renderMathJax();
+        if (saveHistory) snapshot?.();
       }
 
       function ensureMarkerDefs(svg) {
@@ -2103,6 +2130,7 @@
       wireZoom();
       wireToolbar();
       renderHtml(initialHtml);
+      initMathJaxState();
     })();
   </script>
 </body>

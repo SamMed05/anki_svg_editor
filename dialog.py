@@ -27,7 +27,7 @@ class SvgEditorDialog(QDialog):
         self.editor = editor
         self.web = SvgEditorWebView(self, web_path)
         self.setWindowTitle("Anki SVG editor")
-        self.resize(1100, 760)
+        self.resize(1200, 760)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
