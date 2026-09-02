@@ -1,38 +1,705 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Anki SVG editor</title>
-<style>
-:root{color-scheme:dark;--bg:#0c111b;--panel:#151d2b;--panel2:#1d2939;--border:#2b3a4f;--text:#e6edf5;--muted:#93a4b8;--accent:#60a5fa;--danger:#fb7185}
-*{box-sizing:border-box}html,body{height:100%;margin:0}body{font:13px system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
-button,input,select{font:inherit;color:inherit}button{border:1px solid var(--border);background:var(--panel2);border-radius:5px;padding:7px 10px;cursor:pointer}button:hover{border-color:#6482a6;background:#26364d}button:disabled{opacity:.4;cursor:default}.toolbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid var(--border);background:#111927;flex-wrap:wrap}.title{font-weight:650;margin-right:auto;font-size:14px}.toolbar .danger{color:#fecdd3;border-color:#7f1d3a}.toolbar .danger:hover{background:#4c1528}.shortcut{color:var(--muted);font-size:11px;margin-left:4px}.layout{display:flex;min-height:0;flex:1}.canvas-wrap{flex:1;overflow:auto;background-color:#0b1220;background-image:linear-gradient(45deg,#101a29 25%,transparent 25%),linear-gradient(-45deg,#101a29 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#101a29 75%),linear-gradient(-45deg,transparent 75%,#101a29 75%);background-size:24px 24px;background-position:0 0,0 12px,12px -12px,-12px 0;padding:30px}.canvas{min-width:500px;min-height:360px;width:max-content;max-width:100%;margin:auto;background:#f8fafc;color:#111827;padding:24px;box-shadow:0 10px 30px #0005}.canvas svg{max-width:100%;height:auto;overflow:visible}.editable{cursor:pointer}.editable:hover{filter:drop-shadow(0 0 4px #60a5fa)}.selected{filter:drop-shadow(0 0 5px #fb7185)}.hit{pointer-events:stroke;stroke:transparent;stroke-width:18;fill:none;cursor:pointer}.inspector{width:285px;overflow:auto;border-left:1px solid var(--border);background:var(--panel);padding:15px}.inspector h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 16px}.empty{color:var(--muted);line-height:1.5;text-align:center;padding:50px 15px}.field{margin:13px 0}.field label{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}.field input,.field select{width:100%;background:#0d1522;border:1px solid var(--border);border-radius:4px;padding:7px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.swatches{display:flex;gap:6px;flex-wrap:wrap}.swatch{width:27px;height:27px;padding:0;border-radius:4px}.panel{border-top:1px solid var(--border);margin-top:15px;padding-top:3px}.badge{display:inline-block;padding:3px 6px;background:var(--panel2);color:var(--muted);border-radius:4px;font-size:11px}.notice{color:var(--muted);font-size:11px;line-height:1.45}
-@media(max-width:760px){.layout{flex-direction:column}.inspector{width:auto;border-left:0;border-top:1px solid var(--border);max-height:42vh}.canvas-wrap{padding:15px}.canvas{min-width:0;width:100%}.toolbar{gap:5px}.toolbar button{padding:6px 8px}}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anki SVG editor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c111b;
+      --panel: #151d2b;
+      --panel2: #1d2939;
+      --border: #2b3a4f;
+      --text: #e6edf5;
+      --muted: #93a4b8;
+      --accent: #60a5fa;
+      --danger: #fb7185
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0
+    }
+
+    body {
+      font: 13px system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      color: inherit
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: var(--panel2);
+      border-radius: 5px;
+      padding: 7px 10px;
+      cursor: pointer
+    }
+
+    button:hover {
+      border-color: #6482a6;
+      background: #26364d
+    }
+
+    button:disabled {
+      opacity: .4;
+      cursor: default
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #111927;
+      flex-wrap: wrap
+    }
+
+    .title {
+      font-weight: 650;
+      margin-right: auto;
+      font-size: 14px
+    }
+
+    .toolbar .danger {
+      color: #fecdd3;
+      border-color: #7f1d3a
+    }
+
+    .toolbar .danger:hover {
+      background: #4c1528
+    }
+
+    .shortcut {
+      color: var(--muted);
+      font-size: 11px;
+      margin-left: 4px
+    }
+
+    .layout {
+      display: flex;
+      min-height: 0;
+      flex: 1
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      overflow: auto;
+      background-color: #0b1220;
+      background-image: linear-gradient(45deg, #101a29 25%, transparent 25%), linear-gradient(-45deg, #101a29 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #101a29 75%), linear-gradient(-45deg, transparent 75%, #101a29 75%);
+      background-size: 24px 24px;
+      background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+      padding: 30px
+    }
+
+    .canvas {
+      min-width: 500px;
+      min-height: 360px;
+      width: max-content;
+      max-width: 100%;
+      margin: auto;
+      background: #f8fafc;
+      color: #111827;
+      padding: 24px;
+      box-shadow: 0 10px 30px #0005
+    }
+
+    .canvas svg {
+      max-width: 100%;
+      height: auto;
+      overflow: visible
+    }
+
+    .editable {
+      cursor: pointer
+    }
+
+    .editable:hover {
+      filter: drop-shadow(0 0 4px #60a5fa)
+    }
+
+    .selected {
+      filter: drop-shadow(0 0 5px #fb7185)
+    }
+
+    .hit {
+      pointer-events: stroke;
+      stroke: transparent;
+      stroke-width: 18;
+      fill: none;
+      cursor: pointer
+    }
+
+    .inspector {
+      width: 285px;
+      overflow: auto;
+      border-left: 1px solid var(--border);
+      background: var(--panel);
+      padding: 15px
+    }
+
+    .inspector h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin: 0 0 16px
+    }
+
+    .empty {
+      color: var(--muted);
+      line-height: 1.5;
+      text-align: center;
+      padding: 50px 15px
+    }
+
+    .field {
+      margin: 13px 0
+    }
+
+    .field label {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 5px
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      background: #0d1522;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 7px
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px
+    }
+
+    .swatches {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap
+    }
+
+    .swatch {
+      width: 27px;
+      height: 27px;
+      padding: 0;
+      border-radius: 4px
+    }
+
+    .panel {
+      border-top: 1px solid var(--border);
+      margin-top: 15px;
+      padding-top: 3px
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 6px;
+      background: var(--panel2);
+      color: var(--muted);
+      border-radius: 4px;
+      font-size: 11px
+    }
+
+    .notice {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45
+    }
+
+    @media(max-width:760px) {
+      .layout {
+        flex-direction: column
+      }
+
+      .inspector {
+        width: auto;
+        border-left: 0;
+        border-top: 1px solid var(--border);
+        max-height: 42vh
+      }
+
+      .canvas-wrap {
+        padding: 15px
+      }
+
+      .canvas {
+        min-width: 0;
+        width: 100%
+      }
+
+      .toolbar {
+        gap: 5px
+      }
+
+      .toolbar button {
+        padding: 6px 8px
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div class="toolbar"><strong class="title">SVG editor</strong><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button><button id="zoomOut">-</button><span id="zoom">100%</span><button id="zoomIn">+</button><button id="reset">Reset</button><button id="delete" class="danger" disabled>Delete</button><span class="shortcut">Ctrl+Z / Ctrl+Y</span></div>
-<div class="layout"><main class="canvas-wrap"><div id="canvas" class="canvas"></div></main><aside class="inspector"><h2>Inspector <span id="badge" class="badge">No selection</span></h2><div id="empty" class="empty">Select an SVG node, label, line, or path to edit it.</div><div id="controls" hidden><div id="type" class="notice"></div><div class="field"><label>Color</label><div class="swatches"><button class="swatch" data-color="currentColor" style="background:#94a3b8"></button><button class="swatch" data-color="#e11d48" style="background:#e11d48"></button><button class="swatch" data-color="#2563eb" style="background:#2563eb"></button><button class="swatch" data-color="#16a34a" style="background:#16a34a"></button><button class="swatch" data-color="#ea580c" style="background:#ea580c"></button><button class="swatch" data-color="#9333ea" style="background:#9333ea"></button></div><input id="color" type="color" value="#60a5fa" style="margin-top:7px;width:100%;height:30px"></div><div class="field"><label>Stroke width</label><input id="stroke" type="number" min="0.5" max="20" step="0.5"></div><section id="textPanel" class="panel"><div class="field"><label>Text</label><input id="text" type="text"></div><div class="grid"><div class="field"><label>X</label><input id="x" type="number"></div><div class="field"><label>Y</label><input id="y" type="number"></div></div><div class="field"><label>Font size</label><input id="size" type="number" min="1"></div></section><section id="nodePanel" class="panel"><div class="field"><label>Node label</label><input id="node" type="text"></div><div class="grid"><div class="field"><label>Center X</label><input id="cx" type="number"></div><div class="field"><label>Center Y</label><input id="cy" type="number"></div></div></section><section id="edgePanel" class="panel"><div class="grid"><div class="field"><label>Start marker</label><select id="start"><option value="none">None</option><option value="arrow">Arrow</option></select></div><div class="field"><label>End marker</label><select id="end"><option value="none">None</option><option value="arrow">Arrow</option></select></div></div><button id="reverse">Reverse direction</button></section><p class="notice">Changes are written back to the focused Anki field when you press Save.</p></div></aside></div>
-<script>
-(function(){
-const initialHtml=__INITIAL_HTML__, canvas=document.getElementById('canvas');let selected=null,selectedSvg=null,history=[],index=-1,zoom=1,drag=null;
-function snapshot(){const html=clean();if(history[index]===html)return;history.splice(index+1);history.push(html);index++;if(history.length>40){history.shift();index--}buttons()}
-function clean(){const clone=canvas.cloneNode(true);clone.querySelectorAll('.hit,.editor-overlay').forEach(e=>e.remove());clone.querySelectorAll('.editable,.selected').forEach(e=>{e.classList.remove('editable','selected');if(!e.getAttribute('class'))e.removeAttribute('class')});return clone.innerHTML.trim()}
-function render(html,save=true){canvas.innerHTML=html;canvas.querySelectorAll('svg').forEach(prepare);selected=null;selectedSvg=null;show(false);if(save)snapshot()}
-function prepare(svg){const ns='http://www.w3.org/2000/svg';svg.querySelectorAll('circle,ellipse').forEach(el=>{el.classList.add('editable');el.addEventListener('click',e=>{e.stopPropagation();select(el,svg,'node')});el.addEventListener('mousedown',e=>startDrag(e,el,svg,'node'))});svg.querySelectorAll('text').forEach(el=>{el.classList.add('editable');el.addEventListener('click',e=>{e.stopPropagation();select(el,svg,'text')});el.addEventListener('mousedown',e=>startDrag(e,el,svg,'text'))});svg.querySelectorAll('line,path').forEach(el=>{if(el.closest('defs'))return;el.classList.add('editable');const hit=document.createElementNS(ns,el.tagName);for(const a of ['x1','y1','x2','y2','d'])if(el.hasAttribute(a))hit.setAttribute(a,el.getAttribute(a));hit.classList.add('hit');el.parentNode.insertBefore(hit,el);hit.addEventListener('click',e=>{e.stopPropagation();select(el,svg,el.tagName.toLowerCase())});el.addEventListener('click',e=>{e.stopPropagation();select(el,svg,el.tagName.toLowerCase())})})}
-function select(el,svg,type){if(selected)selected.classList.remove('selected');selected=el;selectedSvg=svg;el.classList.add('selected');show(true,type);fields()}
-function show(active,type){document.getElementById('empty').hidden=active;document.getElementById('controls').hidden=!active;document.getElementById('delete').disabled=!active;document.getElementById('badge').textContent=active?(type||'element'):'No selection';document.getElementById('type').textContent=active?'Selected '+type:' '}
-function val(id,v){document.getElementById(id).value=v==null?'':v}
-function fields(){if(!selected)return;const isText=selected.tagName==='text',isNode=selected.tagName==='circle'||selected.tagName==='ellipse',isEdge=selected.tagName==='line'||selected.tagName==='path';document.getElementById('textPanel').hidden=!isText;document.getElementById('nodePanel').hidden=!isNode;document.getElementById('edgePanel').hidden=!isEdge;val('color',selected.getAttribute(isText?'fill':'stroke')||'#60a5fa');val('stroke',selected.getAttribute('stroke-width')||2);if(isText){val('text',selected.textContent);val('x',selected.getAttribute('x'));val('y',selected.getAttribute('y'));val('size',selected.getAttribute('font-size')||16)}if(isNode){val('node',selected.textContent);val('cx',selected.getAttribute('cx'));val('cy',selected.getAttribute('cy'))}}
-function change(fn){if(selected){fn();fields();snapshot()}}
-function num(id){return parseFloat(document.getElementById(id).value)||0}
-function startDrag(e,el,svg,type){if(e.button!==0)return;e.preventDefault();e.stopPropagation();select(el,svg,type);const p=point(e,svg),start={x:p.x,y:p.y};const attrs=type==='node'?['cx','cy']:type==='text'?['x','y']:null;const base=attrs?attrs.map(a=>numAttr(el,a)):null;drag={move(ev){const q=point(ev,svg),dx=Math.round(q.x-start.x),dy=Math.round(q.y-start.y);if(type==='node'){el.setAttribute('cx',base[0]+dx);el.setAttribute('cy',base[1]+dy);const t=nearText(svg,base[0],base[1]);if(t){t.setAttribute('x',base[0]+dx);t.setAttribute('y',base[1]+dy)}}else if(type==='text'){el.setAttribute('x',base[0]+dx);el.setAttribute('y',base[1]+dy)}fields()},end(){window.removeEventListener('mousemove',drag.move);window.removeEventListener('mouseup',drag.end);drag=null;snapshot()}};window.addEventListener('mousemove',drag.move);window.addEventListener('mouseup',drag.end)}
-function numAttr(el,a){return parseFloat(el.getAttribute(a))||0}function nearText(svg,x,y){return [...svg.querySelectorAll('text')].find(t=>Math.hypot(numAttr(t,'x')-x,numAttr(t,'y')-y)<10)}function point(e,svg){const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const m=svg.getScreenCTM();return m?p.matrixTransform(m.inverse()):p}
-function buttons(){document.getElementById('undo').disabled=index<=0;document.getElementById('redo').disabled=index>=history.length-1}function restore(i){if(i<0||i>=history.length)return;index=i;render(history[index],false);buttons()}
-function applyMarker(id,pos){change(()=>{if(document.getElementById(id).value==='none')selected.removeAttribute('marker-'+pos);else selected.setAttribute('marker-'+pos,'url(#arrow)')})}
-document.getElementById('canvas').addEventListener('click',e=>{if(e.target===canvas)show(false)});document.getElementById('undo').onclick=()=>restore(index-1);document.getElementById('redo').onclick=()=>restore(index+1);document.getElementById('delete').onclick=()=>change(()=>{selected.remove();selected=null;show(false)});document.querySelectorAll('.swatch').forEach(b=>b.onclick=()=>change(()=>selected.setAttribute(selected.tagName==='text'?'fill':'stroke',b.dataset.color)));document.getElementById('color').onchange=e=>change(()=>selected.setAttribute(selected.tagName==='text'?'fill':'stroke',e.target.value));document.getElementById('stroke').onchange=e=>change(()=>selected.setAttribute('stroke-width',e.target.value));document.getElementById('text').oninput=e=>{if(selected)selected.textContent=e.target.value};document.getElementById('text').onchange=snapshot;['x','y','size'].forEach(id=>document.getElementById(id).onchange=()=>change(()=>selected.setAttribute(id==='size'?'font-size':id,document.getElementById(id).value)));document.getElementById('node').oninput=e=>{if(selected){const t=nearText(selectedSvg,numAttr(selected,'cx'),numAttr(selected,'cy'));if(t)t.textContent=e.target.value}};document.getElementById('node').onchange=snapshot;['cx','cy'].forEach(id=>document.getElementById(id).onchange=()=>change(()=>{selected.setAttribute(id,num(id));const t=nearText(selectedSvg,numAttr(selected,id==='cx'?'cy':'cx'),numAttr(selected,id==='cy'?'cx':'cy'));if(t)t.setAttribute(id,num(id))}));document.getElementById('start').onchange=()=>applyMarker('start','start');document.getElementById('end').onchange=()=>applyMarker('end','end');document.getElementById('reverse').onclick=()=>change(()=>{if(selected.tagName==='line'){const a=['x1','y1'].map(x=>selected.getAttribute(x)),b=['x2','y2'].map(x=>selected.getAttribute(x));selected.setAttribute('x1',b[0]);selected.setAttribute('y1',b[1]);selected.setAttribute('x2',a[0]);selected.setAttribute('y2',a[1])}});function setZoom(){canvas.style.transform='scale('+zoom+')';canvas.style.transformOrigin='top center';document.getElementById('zoom').textContent=Math.round(zoom*100)+'%'}document.getElementById('zoomIn').onclick=()=>{zoom=Math.min(2.5,zoom+.15);setZoom()};document.getElementById('zoomOut').onclick=()=>{zoom=Math.max(.5,zoom-.15);setZoom()};document.getElementById('reset').onclick=()=>{zoom=1;setZoom()};window.onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();restore(index-(e.shiftKey?-1:1))}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();restore(index+1)}if(e.key==='Escape'){if(selected)selected.classList.remove('selected');selected=null;show(false)}};
-window.getEditedHtml=clean;render(initialHtml)
-})();
-</script>
-</body></html>
+  <div class="toolbar"><strong class="title">SVG editor</strong><button id="undo" disabled>Undo</button><button
+      id="redo" disabled>Redo</button><button id="zoomOut">-</button><span id="zoom">100%</span><button
+      id="zoomIn">+</button><button id="reset">Reset</button><button id="delete" class="danger"
+      disabled>Delete</button><span class="shortcut">Ctrl+Z / Ctrl+Y</span></div>
+  <div class="layout">
+    <main class="canvas-wrap">
+      <div id="canvas" class="canvas"></div>
+    </main>
+    <aside class="inspector">
+      <h2>Inspector <span id="badge" class="badge">No selection</span></h2>
+      <div id="empty" class="empty">Select an SVG node, label, line, or path to edit it.</div>
+      <div id="controls" hidden>
+        <div id="type" class="notice"></div>
+        <div class="field"><label>Color</label>
+          <div class="swatches"><button class="swatch" data-color="currentColor"
+              style="background:#94a3b8"></button><button class="swatch" data-color="#e11d48"
+              style="background:#e11d48"></button><button class="swatch" data-color="#2563eb"
+              style="background:#2563eb"></button><button class="swatch" data-color="#16a34a"
+              style="background:#16a34a"></button><button class="swatch" data-color="#ea580c"
+              style="background:#ea580c"></button><button class="swatch" data-color="#9333ea"
+              style="background:#9333ea"></button></div><input id="color" type="color" value="#60a5fa"
+            style="margin-top:7px;width:100%;height:30px">
+        </div>
+        <div class="field"><label>Stroke width</label><input id="stroke" type="number" min="0.5" max="20"
+            step="0.5"></div>
+        <section id="textPanel" class="panel">
+          <div class="field"><label>Text</label><input id="text" type="text"></div>
+          <div class="grid">
+            <div class="field"><label>X</label><input id="x" type="number"></div>
+            <div class="field"><label>Y</label><input id="y" type="number"></div>
+          </div>
+          <div class="field"><label>Font size</label><input id="size" type="number" min="1"></div>
+        </section>
+        <section id="nodePanel" class="panel">
+          <div class="field"><label>Node label</label><input id="node" type="text"></div>
+          <div class="grid">
+            <div class="field"><label>Center X</label><input id="cx" type="number"></div>
+            <div class="field"><label>Center Y</label><input id="cy" type="number"></div>
+          </div>
+        </section>
+        <section id="edgePanel" class="panel">
+          <div class="grid">
+            <div class="field"><label>Start marker</label><select id="start">
+                <option value="none">None</option>
+                <option value="arrow">Arrow</option>
+              </select></div>
+            <div class="field"><label>End marker</label><select id="end">
+                <option value="none">None</option>
+                <option value="arrow">Arrow</option>
+              </select></div>
+          </div><button id="reverse">Reverse direction</button>
+        </section>
+        <p class="notice">Changes are written back to the focused Anki field when you press Save.</p>
+      </div>
+    </aside>
+  </div>
+  <script>
+    (function () {
+      const initialHtml = __INITIAL_HTML__,
+        canvas = document.getElementById('canvas');
+      let selected = null,
+        selectedSvg = null,
+        history = [],
+        index = -1,
+        zoom = 1,
+        drag = null;
+
+      function snapshot() {
+        const html = clean();
+        if (history[index] === html) return;
+        history.splice(index + 1);
+        history.push(html);
+        index++;
+        if (history.length > 40) {
+          history.shift();
+          index--;
+        }
+        buttons();
+      }
+
+      function clean() {
+        const clone = canvas.cloneNode(true);
+        clone
+          .querySelectorAll('.hit,.editor-overlay')
+          .forEach((e) => e.remove());
+        clone
+          .querySelectorAll('.editable,.selected')
+          .forEach((e) => {
+            e.classList.remove('editable', 'selected');
+            if (!e.getAttribute('class')) e.removeAttribute('class');
+          });
+        return clone.innerHTML.trim();
+      }
+
+      function render(html, save = true) {
+        canvas.innerHTML = html;
+        canvas.querySelectorAll('svg').forEach(prepare);
+        selected = null;
+        selectedSvg = null;
+        show(false);
+        if (save) snapshot();
+      }
+
+      function prepare(svg) {
+        const ns = 'http://www.w3.org/2000/svg';
+        svg.querySelectorAll('circle,ellipse').forEach((el) => {
+          el.classList.add('editable');
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            select(el, svg, 'node');
+          });
+          el.addEventListener('mousedown', (e) =>
+            startDrag(e, el, svg, 'node')
+          );
+        });
+        svg.querySelectorAll('text').forEach((el) => {
+          el.classList.add('editable');
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            select(el, svg, 'text');
+          });
+          el.addEventListener('mousedown', (e) =>
+            startDrag(e, el, svg, 'text')
+          );
+        });
+        svg.querySelectorAll('line,path').forEach((el) => {
+          if (el.closest('defs')) return;
+          el.classList.add('editable');
+          const hit = document.createElementNS(ns, el.tagName);
+          for (const a of ['x1', 'y1', 'x2', 'y2', 'd']) {
+            if (el.hasAttribute(a)) hit.setAttribute(a, el.getAttribute(a));
+          }
+          hit.classList.add('hit');
+          el.parentNode.insertBefore(hit, el);
+          hit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            select(el, svg, el.tagName.toLowerCase());
+          });
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            select(el, svg, el.tagName.toLowerCase());
+          });
+        });
+      }
+
+      function select(el, svg, type) {
+        if (selected) selected.classList.remove('selected');
+        selected = el;
+        selectedSvg = svg;
+        el.classList.add('selected');
+        show(true, type);
+        fields();
+      }
+
+      function show(active, type) {
+        document.getElementById('empty').hidden = active;
+        document.getElementById('controls').hidden = !active;
+        document.getElementById('delete').disabled = !active;
+        document.getElementById('badge').textContent = active
+          ? type || 'element'
+          : 'No selection';
+        document.getElementById('type').textContent = active
+          ? 'Selected ' + type
+          : ' ';
+      }
+
+      function val(id, v) {
+        document.getElementById(id).value = v == null ? '' : v;
+      }
+
+      function fields() {
+        if (!selected) return;
+        const isText = selected.tagName === 'text',
+          isNode =
+            selected.tagName === 'circle' || selected.tagName === 'ellipse',
+          isEdge = selected.tagName === 'line' || selected.tagName === 'path';
+
+        document.getElementById('textPanel').hidden = !isText;
+        document.getElementById('nodePanel').hidden = !isNode;
+        document.getElementById('edgePanel').hidden = !isEdge;
+
+        val(
+          'color',
+          selected.getAttribute(isText ? 'fill' : 'stroke') || '#60a5fa'
+        );
+        val('stroke', selected.getAttribute('stroke-width') || 2);
+
+        if (isText) {
+          val('text', selected.textContent);
+          val('x', selected.getAttribute('x'));
+          val('y', selected.getAttribute('y'));
+          val('size', selected.getAttribute('font-size') || 16);
+        }
+        if (isNode) {
+          val('node', selected.textContent);
+          val('cx', selected.getAttribute('cx'));
+          val('cy', selected.getAttribute('cy'));
+        }
+      }
+
+      function change(fn) {
+        if (selected) {
+          fn();
+          fields();
+          snapshot();
+        }
+      }
+
+      function num(id) {
+        return parseFloat(document.getElementById(id).value) || 0;
+      }
+
+      function startDrag(e, el, svg, type) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        select(el, svg, type);
+
+        const p = point(e, svg),
+          start = { x: p.x, y: p.y };
+        const attrs =
+          type === 'node'
+            ? ['cx', 'cy']
+            : type === 'text'
+              ? ['x', 'y']
+              : null;
+        const base = attrs ? attrs.map((a) => numAttr(el, a)) : null;
+
+        drag = {
+          move(ev) {
+            const q = point(ev, svg),
+              dx = Math.round(q.x - start.x),
+              dy = Math.round(q.y - start.y);
+
+            if (type === 'node') {
+              el.setAttribute('cx', base[0] + dx);
+              el.setAttribute('cy', base[1] + dy);
+              const t = nearText(svg, base[0], base[1]);
+              if (t) {
+                t.setAttribute('x', base[0] + dx);
+                t.setAttribute('y', base[1] + dy);
+              }
+            } else if (type === 'text') {
+              el.setAttribute('x', base[0] + dx);
+              el.setAttribute('y', base[1] + dy);
+            }
+            fields();
+          },
+          end() {
+            window.removeEventListener('mousemove', drag.move);
+            window.removeEventListener('mouseup', drag.end);
+            drag = null;
+            snapshot();
+          },
+        };
+
+        window.addEventListener('mousemove', drag.move);
+        window.addEventListener('mouseup', drag.end);
+      }
+
+      function numAttr(el, a) {
+        return parseFloat(el.getAttribute(a)) || 0;
+      }
+
+      function nearText(svg, x, y) {
+        return [...svg.querySelectorAll('text')].find(
+          (t) => Math.hypot(numAttr(t, 'x') - x, numAttr(t, 'y') - y) < 10
+        );
+      }
+
+      function point(e, svg) {
+        const p = svg.createSVGPoint();
+        p.x = e.clientX;
+        p.y = e.clientY;
+        const m = svg.getScreenCTM();
+        return m ? p.matrixTransform(m.inverse()) : p;
+      }
+
+      function buttons() {
+        document.getElementById('undo').disabled = index <= 0;
+        document.getElementById('redo').disabled = index >= history.length - 1;
+      }
+
+      function restore(i) {
+        if (i < 0 || i >= history.length) return;
+        index = i;
+        render(history[index], false);
+        buttons();
+      }
+
+      function applyMarker(id, pos) {
+        change(() => {
+          if (document.getElementById(id).value === 'none') {
+            selected.removeAttribute('marker-' + pos);
+          } else {
+            selected.setAttribute('marker-' + pos, 'url(#arrow)');
+          }
+        });
+      }
+
+      // Event Listeners
+      document.getElementById('canvas').addEventListener('click', (e) => {
+        if (e.target === canvas) show(false);
+      });
+
+      document.getElementById('undo').onclick = () => restore(index - 1);
+      document.getElementById('redo').onclick = () => restore(index + 1);
+
+      document.getElementById('delete').onclick = () =>
+        change(() => {
+          selected.remove();
+          selected = null;
+          show(false);
+        });
+
+      document.querySelectorAll('.swatch').forEach(
+        (b) =>
+        (b.onclick = () =>
+          change(() =>
+            selected.setAttribute(
+              selected.tagName === 'text' ? 'fill' : 'stroke',
+              b.dataset.color
+            )
+          ))
+      );
+
+      document.getElementById('color').onchange = (e) =>
+        change(() =>
+          selected.setAttribute(
+            selected.tagName === 'text' ? 'fill' : 'stroke',
+            e.target.value
+          )
+        );
+
+      document.getElementById('stroke').onchange = (e) =>
+        change(() => selected.setAttribute('stroke-width', e.target.value));
+
+      document.getElementById('text').oninput = (e) => {
+        if (selected) selected.textContent = e.target.value;
+      };
+      document.getElementById('text').onchange = snapshot;
+
+      ['x', 'y', 'size'].forEach(
+        (id) =>
+        (document.getElementById(id).onchange = () =>
+          change(() =>
+            selected.setAttribute(
+              id === 'size' ? 'font-size' : id,
+              document.getElementById(id).value
+            )
+          ))
+      );
+
+      document.getElementById('node').oninput = (e) => {
+        if (selected) {
+          const t = nearText(
+            selectedSvg,
+            numAttr(selected, 'cx'),
+            numAttr(selected, 'cy')
+          );
+          if (t) t.textContent = e.target.value;
+        }
+      };
+      document.getElementById('node').onchange = snapshot;
+
+      ['cx', 'cy'].forEach(
+        (id) =>
+        (document.getElementById(id).onchange = () =>
+          change(() => {
+            selected.setAttribute(id, num(id));
+            const t = nearText(
+              selectedSvg,
+              numAttr(selected, id === 'cx' ? 'cy' : 'cx'),
+              numAttr(selected, id === 'cy' ? 'cx' : 'cy')
+            );
+            if (t) t.setAttribute(id, num(id));
+          }))
+      );
+
+      document.getElementById('start').onchange = () =>
+        applyMarker('start', 'start');
+      document.getElementById('end').onchange = () =>
+        applyMarker('end', 'end');
+
+      document.getElementById('reverse').onclick = () =>
+        change(() => {
+          if (selected.tagName === 'line') {
+            const a = ['x1', 'y1'].map((x) => selected.getAttribute(x)),
+              b = ['x2', 'y2'].map((x) => selected.getAttribute(x));
+            selected.setAttribute('x1', b[0]);
+            selected.setAttribute('y1', b[1]);
+            selected.setAttribute('x2', a[0]);
+            selected.setAttribute('y2', a[1]);
+          }
+        });
+
+      function setZoom() {
+        canvas.style.transform = 'scale(' + zoom + ')';
+        canvas.style.transformOrigin = 'top center';
+        document.getElementById('zoom').textContent =
+          Math.round(zoom * 100) + '%';
+      }
+
+      document.getElementById('zoomIn').onclick = () => {
+        zoom = Math.min(2.5, zoom + 0.15);
+        setZoom();
+      };
+
+      document.getElementById('zoomOut').onclick = () => {
+        zoom = Math.max(0.5, zoom - 0.15);
+        setZoom();
+      };
+
+      document.getElementById('reset').onclick = () => {
+        zoom = 1;
+        setZoom();
+      };
+
+      window.onkeydown = (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          restore(index - (e.shiftKey ? -1 : 1));
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          restore(index + 1);
+        }
+        if (e.key === 'Escape') {
+          if (selected) selected.classList.remove('selected');
+          selected = null;
+          show(false);
+        }
+      };
+
+      window.getEditedHtml = clean;
+      render(initialHtml);
+    })();
+  </script>
+</body>
+
+</html>
