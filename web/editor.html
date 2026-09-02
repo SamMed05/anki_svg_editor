@@ -1243,8 +1243,47 @@
       }
 
       function onEdgeDown(e, el, svg) {
-        e.stopPropagation();
+        if (e.button !== undefined && e.button !== 0 && e.pointerType === 'mouse') return;
         setSelection(el.tagName.toLowerCase(), el);
+
+        if (el.tagName === 'line') {
+          const baseLine = {
+            x1: numAttr(el, 'x1'), y1: numAttr(el, 'y1'),
+            x2: numAttr(el, 'x2'), y2: numAttr(el, 'y2')
+          };
+
+          beginDrag(e, svg, (dx, dy) => {
+            el.setAttribute('x1', Math.round(baseLine.x1 + dx));
+            el.setAttribute('y1', Math.round(baseLine.y1 + dy));
+            el.setAttribute('x2', Math.round(baseLine.x2 + dx));
+            el.setAttribute('y2', Math.round(baseLine.y2 + dy));
+            
+            const hit = hitMap.get(el);
+            if (hit) syncHitGeometry(el, hit);
+
+            fillFields();
+            renderOverlay();
+          }, snapshot);
+
+        } else if (el.tagName === 'path') {
+          const baseCmds = parsePathCommands(el.getAttribute('d'));
+
+          beginDrag(e, svg, (dx, dy) => {
+            const movedCmds = baseCmds.map(cmd => ({
+              type: cmd.type,
+              args: cmd.args.map((val, idx) => Math.round(val + (idx % 2 === 0 ? dx : dy)))
+            }));
+
+            const d = stringifyPathCommands(movedCmds);
+            el.setAttribute('d', d);
+
+            const hit = hitMap.get(el);
+            if (hit) hit.setAttribute('d', d);
+
+            fillFields();
+            renderOverlay();
+          }, snapshot);
+        }
       }
 
       // ============================================================
@@ -1455,7 +1494,7 @@
         c.setAttribute('r', 5.5);
         c.setAttribute('class', 'handle handle-' + cls);
         c.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
+          e.stopPropagation(); // Prevents line drag from triggering when clicking handles
           e.preventDefault();
           const svg = activeSvg;
           function move(ev) {
