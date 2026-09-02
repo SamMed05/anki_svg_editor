@@ -355,7 +355,7 @@
 
   /* Canvas SVG scaling fixes */
   /* Exclude MathJax SVGs from full-width canvas scaling */
-  .canvas svg:not(.icon):not(mjx-container svg),
+  .canvas svg:not(.icon):not(mjx-container svg):not(.svg-copy-btn svg),
   .canvas > svg,
   .canvas .svg-wrapper,
   .canvas .svg-wrapper > svg {
@@ -464,6 +464,10 @@
   .svg-wrapper:hover {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(var(--hover-halo), 0.18);
+  }
+  .svg-wrapper:hover .svg-copy-btn {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   /* Editable element affordances */
@@ -1100,9 +1104,9 @@
 
             const clone = svg.cloneNode(true);
             clone.querySelectorAll('.hit, .editor-overlay').forEach((el) => el.remove());
-            clone.querySelectorAll('[class]').forEach((el) => {
-              el.classList.remove('editable', 'selected');
-              if (!el.getAttribute('class')) el.removeAttribute('class');
+            clone.querySelectorAll('[class]').forEach((e) => {
+              e.classList.remove('editable', 'selected');
+              if (!e.getAttribute('class')) e.removeAttribute('class');
             });
 
             copyToClipboard(clone.outerHTML.trim(), 'SVG code copied to clipboard');
@@ -2018,14 +2022,13 @@
       function closeImport() { $('importModal').hidden = true; }
 
       function copyToClipboard(text, msg) {
-        // 1. Check for Anki's Python Bridge
-        if (typeof pycmd !== 'undefined') {
-          pycmd('copy_to_clipboard:' + encodeURIComponent(text));
+        const bridge = window.pycmd || (typeof pycmd !== 'undefined' ? pycmd : null);
+        if (bridge) {
+          bridge('copy_to_clipboard:' + encodeURIComponent(text));
           toast(msg);
           return;
         }
 
-        // 2. Web API for secure web contexts
         if (navigator.clipboard && window.isSecureContext) {
           navigator.clipboard.writeText(text)
             .then(() => toast(msg))
@@ -2033,7 +2036,6 @@
           return;
         }
 
-        // 3. Fallback for standalone legacy web contexts
         fallbackCopy(text, msg);
       }
       function fallbackCopy(text, msg) {

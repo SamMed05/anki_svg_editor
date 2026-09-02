@@ -2,7 +2,6 @@ import json
 import os
 from urllib.parse import unquote
 
-from aqt import gui_hooks
 from aqt.qt import QDialog, QDialogButtonBox, QShortcut, QKeySequence, QVBoxLayout, Qt, pyqtSignal, QApplication
 from aqt.webview import AnkiWebView
 
@@ -26,6 +25,7 @@ class SvgEditorDialog(QDialog):
         super().__init__(editor.widget)
         self.editor = editor
         self.web = SvgEditorWebView(self, web_path)
+        self.web.set_bridge_command(self._on_bridge_cmd, self)
         self.setWindowTitle("Anki SVG editor")
         self.resize(1200, 760)
 
@@ -68,18 +68,14 @@ class SvgEditorDialog(QDialog):
             self.saved.emit(content)
             self.accept()
 
+    def _on_bridge_cmd(self, message: str):
+        if message.startswith("copy_to_clipboard:"):
+            text = unquote(message[len("copy_to_clipboard:"):])
+            QApplication.clipboard().setText(text)
+            return None
+
+        return self.web.defaultOnBridgeCmd(message)
+
     def closeEvent(self, event):
         self.reject()
         event.accept()
-
-
-def _on_js_message(handled, message: str, context):
-    if isinstance(context, SvgEditorDialog) and message.startswith("copy_to_clipboard:"):
-        raw_payload = message[len("copy_to_clipboard:"):]
-        text = unquote(raw_payload)
-        QApplication.clipboard().setText(text)
-        return (True, None)
-    return handled
-
-
-gui_hooks.webview_did_receive_js_message.append(_on_js_message)
