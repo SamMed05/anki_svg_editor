@@ -25,7 +25,9 @@ class SvgEditorDialog(QDialog):
         super().__init__(editor.widget)
         self.editor = editor
         self.web = SvgEditorWebView(self, web_path)
+        self._web_cleaned_up = False
         self.web.set_bridge_command(self._on_bridge_cmd, self)
+        self.finished.connect(self._cleanup_webview)
         self.setWindowTitle("Anki SVG editor")
         self.resize(1200, 760)
 
@@ -76,6 +78,13 @@ class SvgEditorDialog(QDialog):
 
         return self.web.defaultOnBridgeCmd(message)
 
+    def _cleanup_webview(self, _result=None):
+        if self._web_cleaned_up:
+            return
+        self._web_cleaned_up = True
+        self.web.cleanup()
+
     def closeEvent(self, event):
+        self._cleanup_webview()
         self.reject()
         event.accept()
