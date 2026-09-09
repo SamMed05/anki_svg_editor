@@ -523,6 +523,17 @@
   .empty-state { text-align: center; padding: 44px 14px; color: var(--text-muted); }
   .empty-state .icon { width: 30px; height: 30px; margin-bottom: 10px; color: var(--text-faint); }
   .empty-state p { margin: 0; line-height: 1.55; font-size: 12.5px; }
+  button.tool-active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .svg-context-menu {
+    position: fixed; z-index: 40; width: 128px; padding: 4px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+  }
+  .svg-context-menu[hidden] { display: none; }
+  .svg-context-menu button { width: 100%; justify-content: flex-start; border-color: transparent; padding: 7px 6px; font-size: 11px; }
+  .svg-context-menu button:hover:not(:disabled) { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+  .svg-context-menu .icon { width: 15px; height: 15px; color: var(--accent); }
 
   .section {
     background: var(--panel-alt);
@@ -718,6 +729,7 @@
         <div id="empty" class="empty-state">
           <svg class="icon" viewBox="0 0 24 24"><path d="M4 4l7 17 2-7 7-2z" /></svg>
           <p>Select a node, label, line, curve, or rectangle in the diagram to edit it here.</p>
+          <p class="notice">Right-click inside an SVG to add an element.</p>
         </div>
 
         <div id="controls" hidden>
@@ -750,6 +762,16 @@
                 <span id="strokeWidthReadout" class="stepper-readout">2.0</span>
               </div>
             </div>
+
+            <div id="strokeStyleRow" style="margin-top:14px;">
+              <div class="field"><label>Stroke style</label></div>
+              <select id="strokeStyle">
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+                <option value="dashdot">Dash-dot</option>
+              </select>
+            </div>
           </div>
 
           <!-- Text panel -->
@@ -770,6 +792,8 @@
                 </select>
               </div>
             </div>
+            <button id="copyTextStyle" type="button" class="btn-block" title="Select a source text to copy its style from"><svg class="icon" viewBox="0 0 24 24"><path d="m15 4 5 5" /><path d="m13 6 5 5" /><path d="m4 20 4.5-1 9.8-9.8a2.1 2.1 0 0 0-3-3L6 16z" /><path d="M3 4v4" /><path d="M1 6h4" /></svg>Copy text style from...</button>
+            <p class="notice">Choose this on the target label, then select the source label.</p>
           </section>
 
           <!-- Node panel -->
@@ -859,6 +883,18 @@
 
   <div id="toasts" class="toasts"></div>
 
+  <div id="svgContextMenu" class="svg-context-menu" hidden>
+    <button type="button" data-add-kind="text"><svg class="icon" viewBox="0 0 24 24"><path d="M4 5h16" /><path d="M12 5v14" /><path d="M8 19h8" /></svg>Text</button>
+    <button type="button" data-add-kind="square"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" /></svg>Square</button>
+    <button type="button" data-add-kind="circle"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /></svg>Circle</button>
+    <button type="button" data-add-kind="ellipse"><svg class="icon" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="6" /></svg>Ellipse</button>
+    <button type="button" data-add-kind="node"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" /><path d="M9 12h6" /></svg>Node</button>
+    <button type="button" data-add-kind="line"><svg class="icon" viewBox="0 0 24 24"><path d="M5 19 19 5" /></svg>Line</button>
+    <button type="button" data-add-kind="arrow"><svg class="icon" viewBox="0 0 24 24"><path d="M4 19 18 5" /><path d="M11 5h7v7" /></svg>Arrow</button>
+    <button type="button" data-add-kind="curve"><svg class="icon" viewBox="0 0 24 24"><path d="M4 17c4 0 4-10 8-10s4 10 8 10" /></svg>Curve</button>
+    <button type="button" data-add-kind="draw"><svg class="icon" viewBox="0 0 24 24"><path d="M4 18c3-9 6 6 9-3s5 1 7-8" /></svg>Draw path</button>
+  </div>
+
   <script>
     (function () {
       'use strict';
@@ -888,6 +924,9 @@
       let selection = null;   // { type: 'node'|'text'|'rect'|'line'|'path', el, textEl? }
       let activeSvg = null;
       let overlayGroup = null;
+      let copyTextStyleTarget = null;
+      let contextTarget = null;
+      let drawingTarget = null;
       const hitMap = new WeakMap(); // real line/path element -> invisible wide hit-target twin
 
       // ============================================================
@@ -899,8 +938,8 @@
       }
       function svgPoint(e, svg) {
         const p = svg.createSVGPoint();
-        p.x = e.clientX;
-        p.y = e.clientY;
+        p.x = Number.isFinite(e.clientX) ? e.clientX : 0;
+        p.y = Number.isFinite(e.clientY) ? e.clientY : 0;
         const m = svg.getScreenCTM();
         return m ? p.matrixTransform(m.inverse()) : { x: p.x, y: p.y };
       }
@@ -1157,8 +1196,152 @@
         });
 
         svg.addEventListener('pointerdown', (e) => {
+          if (drawingTarget && drawingTarget.svg === svg) {
+            beginDrawPath(e, svg);
+            return;
+          }
           if (e.target === svg) clearSelection();
         });
+        svg.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showContextMenu(svg, svgPoint(e, svg), e.clientX, e.clientY);
+        });
+      }
+
+      function wireCreatedElement(el, svg) {
+        el.classList.add('editable');
+        if (el.tagName === 'circle' || el.tagName === 'ellipse') {
+          el.addEventListener('pointerdown', (e) => onNodeDown(e, el, svg));
+        } else if (el.tagName === 'rect') {
+          el.addEventListener('pointerdown', (e) => onRectDown(e, el, svg));
+        } else if (el.tagName === 'text') {
+          el.addEventListener('pointerdown', (e) => onTextDown(e, el, svg));
+        } else if (el.tagName === 'line' || el.tagName === 'path') {
+          const hit = makeHitTwin(el);
+          el.parentNode.insertBefore(hit, el);
+          hitMap.set(el, hit);
+          const onDown = (e) => onEdgeDown(e, el, svg);
+          hit.addEventListener('pointerdown', onDown);
+          el.addEventListener('pointerdown', onDown);
+        }
+      }
+
+      function elementTypeFor(kind) {
+        if (kind === 'text') return 'text';
+        if (kind === 'square') return 'rect';
+        if (kind === 'circle' || kind === 'node') return 'node';
+        if (kind === 'ellipse') return 'node';
+        return kind === 'line' || kind === 'arrow' ? 'line' : 'path';
+      }
+
+      function showContextMenu(svg, point, clientX, clientY) {
+        contextTarget = { svg, x: point.x, y: point.y };
+        const menu = $('svgContextMenu');
+        menu.hidden = false;
+        menu.style.left = Math.max(8, Math.min(clientX, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+        menu.style.top = Math.max(8, Math.min(clientY, window.innerHeight - menu.offsetHeight - 8)) + 'px';
+      }
+
+      function hideContextMenu() {
+        $('svgContextMenu').hidden = true;
+        contextTarget = null;
+      }
+
+      function beginDrawPath(e, svg) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.pointerId !== undefined && svg.setPointerCapture) svg.setPointerCapture(e.pointerId);
+        const start = svgPoint(e, svg);
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', 'M ' + round(start.x) + ' ' + round(start.y));
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'currentColor');
+        path.setAttribute('stroke-width', 2);
+        svg.appendChild(path);
+        wireCreatedElement(path, svg);
+        setSelection('path', path);
+        const points = [[round(start.x), round(start.y)]];
+
+        function move(ev) {
+          const point = svgPoint(ev, svg);
+          const next = [round(point.x), round(point.y)];
+          if (Math.hypot(next[0] - points[points.length - 1][0], next[1] - points[points.length - 1][1]) < 2) return;
+          points.push(next);
+          const d = points.map((item, index) => (index ? 'L ' : 'M ') + item[0] + ' ' + item[1]).join(' ');
+          path.setAttribute('d', d);
+          const hit = hitMap.get(path);
+          if (hit) hit.setAttribute('d', d);
+        }
+
+        function up() {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          window.removeEventListener('pointercancel', up);
+          if (e.pointerId !== undefined && svg.releasePointerCapture) {
+            try { svg.releasePointerCapture(e.pointerId); } catch (err) { }
+          }
+          drawingTarget = null;
+          setSelection('path', path);
+          renderOverlay();
+          snapshot();
+          toast('Path drawn');
+        }
+
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
+      }
+
+      function addElement(kind, target) {
+        if (!target || !target.svg || !target.svg.isConnected) return;
+        if (kind === 'draw') {
+          drawingTarget = target;
+          hideContextMenu();
+          toast('Drag on this SVG to draw a path');
+          return;
+        }
+        const svg = target.svg;
+        const x = target.x;
+        const y = target.y;
+        const tagName = kind === 'text' ? 'text' : kind === 'square' ? 'rect' : kind === 'circle' ? 'circle' : kind === 'ellipse' ? 'ellipse' : kind === 'node' ? 'circle' : kind === 'line' || kind === 'arrow' ? 'line' : 'path';
+        const element = document.createElementNS(SVG_NS, tagName);
+        const defaults = {
+          text: { x, y, fill: 'currentColor', 'font-size': 20, 'text-anchor': 'middle', textContent: 'Label' },
+          square: { x: x - 55, y: y - 55, width: 110, height: 110, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 },
+          circle: { cx: x, cy: y, r: 48, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 },
+          ellipse: { cx: x, cy: y, rx: 72, ry: 42, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 },
+          node: { cx: x, cy: y, r: 28, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 },
+          line: { x1: x - 90, y1: y, x2: x + 90, y2: y, stroke: 'currentColor', 'stroke-width': 2 },
+          arrow: { x1: x - 90, y1: y, x2: x + 90, y2: y, stroke: 'currentColor', 'stroke-width': 2, 'marker-end': 'url(#ed-arrow-end)' },
+          curve: { d: 'M ' + (x - 90) + ' ' + y + ' Q ' + x + ' ' + (y - 100) + ' ' + (x + 90) + ' ' + y, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 },
+          draw: { d: 'M ' + (x - 85) + ' ' + (y + 25) + ' C ' + (x - 35) + ' ' + (y - 55) + ' ' + (x + 25) + ' ' + (y + 55) + ' ' + (x + 85) + ' ' + (y - 25), fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }
+        }[kind];
+
+        ensureMarkerDefs(svg);
+        Object.entries(defaults).forEach(([name, value]) => {
+          if (name === 'textContent') element.textContent = value;
+          else element.setAttribute(name, value);
+        });
+        svg.appendChild(element);
+        wireCreatedElement(element, svg);
+        let extra;
+        if (kind === 'node') {
+          const label = document.createElementNS(SVG_NS, 'text');
+          label.setAttribute('x', x);
+          label.setAttribute('y', y + 5);
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('fill', 'currentColor');
+          label.setAttribute('font-size', 14);
+          label.textContent = 'Node';
+          svg.appendChild(label);
+          wireCreatedElement(label, svg);
+          extra = { textEl: label };
+        }
+        setSelection(elementTypeFor(kind), element, extra);
+        snapshot();
+        toast('Element added');
+        hideContextMenu();
       }
 
       function findPairedText(svg, circle) {
@@ -1205,6 +1388,15 @@
         showPanelsFor(type);
         fillFields();
         renderOverlay();
+
+        if (copyTextStyleTarget && type === 'text' && el !== copyTextStyleTarget) {
+          copyTextStyle(el, copyTextStyleTarget);
+          copyTextStyleTarget = null;
+          $('copyTextStyle').classList.remove('tool-active');
+          fillFields();
+          snapshot();
+          toast('Text style copied');
+        }
       }
 
       function closestSvg(el) {
@@ -1234,6 +1426,7 @@
         $('fillRow').hidden = !(type === 'node' || type === 'rect' || type === 'text');
         $('strokeRow').hidden = type === 'text';
         $('strokeWidthRow').hidden = type === 'text';
+        $('strokeStyleRow').hidden = type === 'text';
 
         $('fillEcho').closest('label').parentElement.querySelector('label').firstChild.textContent =
           (type === 'text') ? 'Color ' : 'Fill ';
@@ -1260,6 +1453,7 @@
           const swv = Number.isFinite(sw) ? sw : 2;
           $('strokeWidthRange').value = swv;
           $('strokeWidthReadout').textContent = swv.toFixed(1);
+          $('strokeStyle').value = strokeStyle(el.getAttribute('stroke-dasharray'));
         }
 
         if (type === 'text') {
@@ -1316,6 +1510,28 @@
           return '#' + v.slice(1).split('').map((c) => c + c).join('');
         }
         return v;
+      }
+
+      function strokeStyle(dash) {
+        if (dash === '2 3' || dash === '2,3') return 'dotted';
+        if (dash === '8 4' || dash === '8,4') return 'dashed';
+        if (dash === '8 4 2 4' || dash === '8,4,2,4') return 'dashdot';
+        return 'solid';
+      }
+
+      function applyStrokeStyle(el, style) {
+        const dash = { dashed: '8 4', dotted: '2 3', dashdot: '8 4 2 4' }[style];
+        if (dash) el.setAttribute('stroke-dasharray', dash);
+        else el.removeAttribute('stroke-dasharray');
+      }
+
+      function copyTextStyle(source, target) {
+        ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'font-family', 'font-size', 'font-style', 'font-weight', 'letter-spacing', 'text-anchor', 'dominant-baseline', 'opacity'].forEach((attribute) => {
+          if (source.hasAttribute(attribute)) target.setAttribute(attribute, source.getAttribute(attribute));
+          else target.removeAttribute(attribute);
+        });
+        if (source.hasAttribute('style')) target.setAttribute('style', source.getAttribute('style'));
+        else target.removeAttribute('style');
       }
 
       function buildSwatches() {
@@ -1439,6 +1655,7 @@
           el.setAttribute('x', Math.round(baseX + dx));
           el.setAttribute('y', Math.round(baseY + dy));
           fillFields();
+          renderOverlay();
         }, snapshot);
       }
 
@@ -1725,6 +1942,49 @@
         return l;
       }
 
+      function updateRect(el, x, y, width, height) {
+        el.setAttribute('x', round(x));
+        el.setAttribute('y', round(y));
+        el.setAttribute('width', round(Math.max(4, width)));
+        el.setAttribute('height', round(Math.max(4, height)));
+        renderOverlay();
+        fillFields();
+      }
+
+      function renderRectOverlay(el) {
+        const x = numAttr(el, 'x'), y = numAttr(el, 'y');
+        const width = Math.max(4, numAttr(el, 'width')), height = Math.max(4, numAttr(el, 'height'));
+        const ratio = width / height;
+        const handles = [
+          ['tl', x, y], ['tr', x + width, y], ['br', x + width, y + height], ['bl', x, y + height],
+          ['top', x + width / 2, y], ['right', x + width, y + height / 2],
+          ['bottom', x + width / 2, y + height], ['left', x, y + height / 2]
+        ];
+
+        handles.forEach(([kind, hx, hy]) => {
+          const handleClass = ['top', 'right', 'bottom', 'left'].includes(kind) ? 'ctrl' : 'anchor';
+          overlayGroup.appendChild(makeHandle(hx, hy, handleClass, (nx, ny) => {
+            if (kind === 'top' || kind === 'bottom' || kind === 'left' || kind === 'right') {
+              if (kind === 'top') updateRect(el, x, Math.min(ny, y + height - 4), width, y + height - Math.min(ny, y + height - 4));
+              if (kind === 'bottom') updateRect(el, x, y, width, Math.max(4, ny - y));
+              if (kind === 'left') updateRect(el, Math.min(nx, x + width - 4), y, x + width - Math.min(nx, x + width - 4), height);
+              if (kind === 'right') updateRect(el, x, y, Math.max(4, nx - x), height);
+              return;
+            }
+
+            const fixedX = kind.includes('l') ? x + width : x;
+            const fixedY = kind.includes('t') ? y + height : y;
+            let newWidth = Math.max(4, Math.abs(nx - fixedX));
+            let newHeight = Math.max(4, Math.abs(ny - fixedY));
+            if (newWidth / newHeight > ratio) newHeight = newWidth / ratio;
+            else newWidth = newHeight * ratio;
+            const newX = kind.includes('l') ? fixedX - newWidth : fixedX;
+            const newY = kind.includes('t') ? fixedY - newHeight : fixedY;
+            updateRect(el, newX, newY, newWidth, newHeight);
+          }));
+        });
+      }
+
       function commitPathD(cmds) {
         const d = stringifyPathCommands(cmds);
         selection.el.setAttribute('d', d);
@@ -1738,7 +1998,12 @@
         removeOverlay();
         if (!selection || !activeSvg) return;
 
-        if (selection.type === 'line') {
+        if (selection.type === 'rect') {
+          overlayGroup = document.createElementNS(SVG_NS, 'g');
+          overlayGroup.setAttribute('class', 'editor-overlay');
+          renderRectOverlay(selection.el);
+          (selection.el.parentNode || activeSvg).appendChild(overlayGroup);
+        } else if (selection.type === 'line') {
           overlayGroup = document.createElementNS(SVG_NS, 'g');
           overlayGroup.setAttribute('class', 'editor-overlay');
           const el = selection.el;
@@ -1933,6 +2198,10 @@
       // ============================================================
       function deleteSelected() {
         if (!selection) return;
+        if (selection.el === copyTextStyleTarget) {
+          copyTextStyleTarget = null;
+          $('copyTextStyle').classList.remove('tool-active');
+        }
         if (selection.type === 'node') {
           selection.el.remove();
           if (selection.textEl) selection.textEl.remove();
@@ -1965,6 +2234,7 @@
           $('strokeWidthReadout').textContent = parseFloat(e.target.value).toFixed(1);
         });
         $('strokeWidthRange').addEventListener('change', snapshot);
+        $('strokeStyle').addEventListener('change', (e) => change(() => applyStrokeStyle(selection.el, e.target.value)));
 
         $('textContent').addEventListener('input', (e) => { if (selection) selection.el.textContent = e.target.value; });
         $('textContent').addEventListener('change', snapshot);
@@ -2006,6 +2276,23 @@
         $('btnFlip').addEventListener('click', flipDirection);
         $('btnConvert').addEventListener('click', convertEdge);
         $('delete').addEventListener('click', deleteSelected);
+        $('copyTextStyle').addEventListener('click', () => {
+          if (!selection || selection.type !== 'text') return;
+          copyTextStyleTarget = selection.el;
+          $('copyTextStyle').classList.add('tool-active');
+          toast('Select the source text label');
+        });
+      }
+
+      function wireContextMenu() {
+        $('svgContextMenu').querySelectorAll('[data-add-kind]').forEach((button) => {
+          button.addEventListener('click', () => addElement(button.dataset.addKind, contextTarget));
+        });
+        window.addEventListener('pointerdown', (e) => {
+          const menu = $('svgContextMenu');
+          if (!menu.hidden && !menu.contains(e.target)) hideContextMenu();
+        });
+        window.addEventListener('resize', hideContextMenu);
       }
 
       // ============================================================
@@ -2139,6 +2426,7 @@
       // Init
       // ============================================================
       wireFields();
+      wireContextMenu();
       wireZoom();
       wireToolbar();
       renderHtml(initialHtml);
