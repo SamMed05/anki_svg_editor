@@ -999,10 +999,19 @@
 
       function initMathJaxState() {
         updateMathJaxUI();
-        if (isMathJaxEnabled) {
-          rawCanvasHtml = canvas.innerHTML;
-          renderMathJax();
-        }
+        if (isMathJaxEnabled) renderMathJax();
+      }
+
+      function normalizeMathJaxInput(html) {
+        const trimmed = html.trim();
+        const isStandaloneEnvironment = /^\\begin\{[a-zA-Z*]+\}[\s\S]*\\end\{[a-zA-Z*]+\}\s*$/.test(trimmed);
+        const source = isStandaloneEnvironment ? '\\[' + html + '\\]' : html;
+        const escapeHashes = (block) => block.replace(/#/g, '\\#');
+
+        return source
+          .replace(/\\\[[\s\S]*?\\\]/g, escapeHashes)
+          .replace(/\$\$[\s\S]*?\$\$/g, escapeHashes)
+          .replace(/\\\([\s\S]*?\\\)/g, escapeHashes);
       }
 
       if (toggleBtn) {
@@ -1011,18 +1020,13 @@
           localStorage.setItem('anki_svg_editor_mathjax', isMathJaxEnabled.toString());
           updateMathJaxUI();
 
-          if (isMathJaxEnabled) {
-            rawCanvasHtml = canvas.innerHTML;
-            renderMathJax();
-          } else if (rawCanvasHtml) {
-            renderHtml(rawCanvasHtml, false);
-          }
+          if (rawCanvasHtml) renderHtml(rawCanvasHtml, false);
         });
       }
 
       function renderHtml(html, saveHistory = true) {
-        canvas.innerHTML = html;
         rawCanvasHtml = html;
+        canvas.innerHTML = isMathJaxEnabled ? normalizeMathJaxInput(html) : html;
 
         prepareSvg && canvas.querySelectorAll('svg').forEach(prepareSvg);
         clearSelection?.();
